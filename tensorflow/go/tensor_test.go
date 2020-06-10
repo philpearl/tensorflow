@@ -105,6 +105,7 @@ func TestNewTensor(t *testing.T) {
 				t.Errorf("encode/decode: got %v, want %v", got, test.value)
 			}
 		}
+		tensor.Close()
 	}
 
 	for _, test := range errorTests {

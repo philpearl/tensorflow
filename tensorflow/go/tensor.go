@@ -116,6 +116,7 @@ func NewTensor(value interface{}) (*Tensor, error) {
 		}
 	} else {
 		e := stringEncoder{offsets: buf, data: raw[nflattened*8:], status: newStatus()}
+		defer e.close()
 		if err := e.encode(reflect.ValueOf(value), shape); err != nil {
 			return nil, err
 		}
@@ -203,6 +204,15 @@ func newTensorFromC(c *C.TF_Tensor) *Tensor {
 }
 
 func (t *Tensor) finalize() { C.TF_DeleteTensor(t.c) }
+
+// Close releases the resources associated with the Tensor.
+func (t *Tensor) Close() {
+	if t.c != nil {
+		runtime.SetFinalizer(t, nil)
+		C.TF_DeleteTensor(t.c)
+		t.c = nil
+	}
+}
 
 // DataType returns the scalar datatype of the Tensor.
 func (t *Tensor) DataType() DataType { return DataType(C.TF_TensorType(t.c)) }
@@ -593,6 +603,10 @@ func (e *stringEncoder) encode(v reflect.Value, shape []int64) error {
 		}
 	}
 	return nil
+}
+
+func (e *stringEncoder) close() {
+	e.status.close()
 }
 
 func bug(format string, args ...interface{}) error {

@@ -52,6 +52,7 @@ type SavedModel struct {
 // https://www.tensorflow.org/code/tensorflow/python/saved_model/
 func LoadSavedModel(exportDir string, tags []string, options *SessionOptions) (*SavedModel, error) {
 	status := newStatus()
+	defer status.close()
 	cOpt, doneOpt, err := options.c()
 	defer doneOpt()
 	if err != nil {

@@ -45,6 +45,7 @@ type TensorHandle struct {
 // NewTensorHandle creates a new tensor handle from a tensor.
 func NewTensorHandle(t *Tensor) (*TensorHandle, error) {
 	status := newStatus()
+	defer status.close()
 	cHandle := C.TFE_NewTensorHandle(t.c, status.c)
 	if err := status.Err(); err != nil {
 		return nil, err
@@ -90,6 +91,7 @@ func (th *TensorHandle) Shape() ([]int64, error) {
 // until the operation that produces the handle has completed.
 func (th *TensorHandle) numDims() (int, error) {
 	status := newStatus()
+	defer status.close()
 	n := int(C.TFE_TensorHandleNumDims(th.c, status.c))
 	return n, status.Err()
 }
@@ -98,6 +100,7 @@ func (th *TensorHandle) numDims() (int, error) {
 // blocks until the operation that produces the handle has completed.
 func (th *TensorHandle) dim(index int) (int64, error) {
 	status := newStatus()
+	defer status.close()
 	n := int64(C.TFE_TensorHandleDim(th.c, C.int(index), status.c))
 	if err := status.Err(); err != nil {
 		return 0, err
@@ -113,6 +116,7 @@ func (th *TensorHandle) dim(index int) (int64, error) {
 // th has completed.
 func (th *TensorHandle) DeviceName() (string, error) {
 	status := newStatus()
+	defer status.close()
 	name := C.TFE_TensorHandleDeviceName(th.c, status.c)
 	if err := status.Err(); err != nil {
 		return "", err
@@ -132,12 +136,12 @@ func (th *TensorHandle) BackingDeviceName() (string, error) {
 	// See https://github.com/tensorflow/tensorflow/issues/23257#issuecomment-433751410
 	return th.DeviceName()
 	/*
-	status := newStatus()
-	name := C.TFE_TensorHandleBackingDeviceName(th.c, status.c)
-	if err := status.Err(); err != nil {
-		return "", err
-	}
-	return C.GoString(name), nil
+		status := newStatus()
+		name := C.TFE_TensorHandleBackingDeviceName(th.c, status.c)
+		if err := status.Err(); err != nil {
+			return "", err
+		}
+		return C.GoString(name), nil
 	*/
 }
 
@@ -145,6 +149,7 @@ func (th *TensorHandle) BackingDeviceName() (string, error) {
 // not yet computed.
 func (th *TensorHandle) ToTensor() (*Tensor, error) {
 	status := newStatus()
+	defer status.close()
 	cTensor := C.TFE_TensorHandleResolve(th.c, status.c)
 	if err := status.Err(); err != nil {
 		return nil, err
@@ -160,6 +165,7 @@ func (th *TensorHandle) ToTensor() (*Tensor, error) {
 // destination tensor to be placed in host memory).
 func (th *TensorHandle) CopyToDevice(c *Context, deviceName string) (*TensorHandle, error) {
 	status := newStatus()
+	defer status.close()
 	n := C.CString(deviceName)
 	newTh := C.TFE_TensorHandleCopyToDevice(th.c, c.c, n, status.c)
 	C.free(unsafe.Pointer(n))

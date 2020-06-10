@@ -82,6 +82,7 @@ func (g *Graph) WriteTo(w io.Writer) (int64, error) {
 	buf := C.TF_NewBuffer()
 	defer C.TF_DeleteBuffer(buf)
 	status := newStatus()
+	defer status.close()
 	C.TF_GraphToGraphDef(g.c, buf, status.c)
 	if err := status.Err(); err != nil {
 		return 0, err
@@ -132,6 +133,7 @@ func (g *Graph) ImportWithOptions(def []byte, options GraphImportOptions) error 
 	defer C.free(buf.data)
 
 	status := newStatus()
+	defer status.close()
 
 	C.TF_GraphImportGraphDef(g.c, buf, opts, status.c)
 	if err := status.Err(); err != nil {
@@ -196,6 +198,7 @@ func (g *Graph) AddGradients(prefix string, y []Output, x []Output, dx []Output)
 
 		status = newStatus()
 	)
+	defer status.close()
 
 	if len(y) > 0 {
 		pcy = &cy[0]
@@ -309,6 +312,7 @@ func (g *Graph) AddOperation(args OpSpec) (*Operation, error) {
 		C.TF_AddControlInput(cdesc, in.c)
 	}
 	status := newStatus()
+	defer status.close()
 	for name, value := range args.Attrs {
 		if err := setAttr(cdesc, status, name, value); err != nil {
 			// Memory leak here as the TF_OperationDescription

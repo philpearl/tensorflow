@@ -24,7 +24,7 @@ import "runtime"
 type code C.TF_Code
 
 // status holds error information returned by TensorFlow. We convert all
-// TF statuses to Go errors.
+// TF statuses to Go errors (or nil if the status is OK)
 type status struct {
 	c *C.TF_Status
 }
@@ -35,11 +35,24 @@ func newStatus() *status {
 	return s
 }
 
+// This finalizer is belt-and-braces and ideally would be removed. It should not
+// be needed as creators of status should always call close
 func (s *status) finalizer() {
 	C.TF_DeleteStatus(s.c)
 }
 
-func (s *status) Code() code {
+func (s *status) close() {
+	if s.c != nil {
+		runtime.SetFinalizer(s, nil)
+		C.TF_DeleteStatus(s.c)
+		s.c = nil
+	}
+}
+
+func (s *status) code() code {
+	if s.c == nil {
+		return C.TF_OK
+	}
 	return code(C.TF_GetCode(s.c))
 }
 
@@ -48,11 +61,15 @@ func (s *status) String() string {
 }
 
 // Err converts the status to a Go error and returns nil if the status is OK.
+// Note it does not need to be public!
 func (s *status) Err() error {
-	if s == nil || s.Code() == C.TF_OK {
+	if s == nil || s.code() == C.TF_OK {
 		return nil
 	}
-	return (*statusError)(s)
+	// Note that we don't want to rely on the C memory past this point. If we
+	// want to present the code to the caller we should wrap it into the error
+	// at this juncture.
+	return &statusError{msg: s.String()}
 }
 
 // statusError is distinct from status because it fulfills the error interface.
@@ -60,8 +77,10 @@ func (s *status) Err() error {
 //
 // TODO(jhseu): Make public, rename to Error, and provide a way for users to
 // check status codes.
-type statusError status
+type statusError struct {
+	msg string
+}
 
 func (s *statusError) Error() string {
-	return (*status)(s).String()
+	return s.msg
 }

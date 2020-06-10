@@ -46,6 +46,7 @@ func (o *ContextOptions) c() (*C.TFE_ContextOptions, error) {
 
 	if sz := len(o.Config); sz > 0 {
 		status := newStatus()
+		defer status.close()
 		cConfig := C.CBytes(o.Config)
 		C.TFE_ContextOptionsSetConfig(opt, cConfig, C.size_t(sz), status.c)
 		C.free(cConfig)
@@ -78,6 +79,7 @@ type Context struct {
 // options may be nil to use the default options.
 func NewContext(options *ContextOptions) (*Context, error) {
 	status := newStatus()
+	defer status.close()
 	cOpt, err := options.c()
 	if err != nil {
 		return nil, err
@@ -100,6 +102,7 @@ func (c *Context) finalizer() {
 // ListDevices returns the list of devices associated with a Context.
 func (c *Context) ListDevices() ([]Device, error) {
 	status := newStatus()
+	defer status.close()
 	devicesList := C.TFE_ContextListDevices(c.c, status.c)
 	if err := status.Err(); err != nil {
 		return nil, fmt.Errorf("SessionListDevices() failed: %v", err)

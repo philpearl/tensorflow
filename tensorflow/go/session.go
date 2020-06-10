@@ -50,6 +50,7 @@ type Session struct {
 // options may be nil to use the default options.
 func NewSession(graph *Graph, options *SessionOptions) (*Session, error) {
 	status := newStatus()
+	defer status.close()
 	cOpt, doneOpt, err := options.c()
 	defer doneOpt()
 	if err != nil {
@@ -83,6 +84,7 @@ func (d Device) String() string {
 func deviceSliceFromDeviceList(list *C.TF_DeviceList) ([]Device, error) {
 	var devices []Device
 	status := newStatus()
+	defer status.close()
 
 	for i := 0; i < int(C.TF_DeviceListCount(list)); i++ {
 		name := C.TF_DeviceListName(list, C.int(i), status.c)
@@ -115,6 +117,7 @@ func deviceSliceFromDeviceList(list *C.TF_DeviceList) ([]Device, error) {
 // ListDevices returns the list of devices associated with a Session.
 func (s *Session) ListDevices() ([]Device, error) {
 	status := newStatus()
+	defer status.close()
 	devicesList := C.TF_SessionListDevices(s.c, status.c)
 	if err := status.Err(); err != nil {
 		return nil, fmt.Errorf("SessionListDevices() failed: %v", err)
@@ -142,6 +145,7 @@ func (s *Session) Run(feeds map[Output]*Tensor, fetches []Output, targets []*Ope
 
 	c := newCRunArgs(feeds, fetches, targets)
 	status := newStatus()
+	defer status.close()
 	C.TF_SessionRun(s.c, nil,
 		ptrOutput(c.feeds), ptrTensor(c.feedTensors), C.int(len(feeds)),
 		ptrOutput(c.fetches), ptrTensor(c.fetchTensors), C.int(len(fetches)),
@@ -185,6 +189,7 @@ func (pr *PartialRun) Run(feeds map[Output]*Tensor, fetches []Output, targets []
 		status = newStatus()
 		s      = pr.session
 	)
+	defer status.close()
 	s.mu.Lock()
 	if s.c == nil {
 		s.mu.Unlock()
@@ -223,6 +228,7 @@ func (s *Session) NewPartialRun(feeds, fetches []Output, targets []*Operation) (
 
 		status = newStatus()
 	)
+	defer status.close()
 	if len(feeds) > 0 {
 		pcfeeds = &cfeeds[0]
 		for i, o := range feeds {
@@ -276,6 +282,7 @@ func (s *Session) Close() error {
 		return nil
 	}
 	status := newStatus()
+	defer status.close()
 	C.TF_CloseSession(s.c, status.c)
 	if err := status.Err(); err != nil {
 		return err
@@ -332,6 +339,7 @@ func (o *SessionOptions) c() (ret *C.TF_SessionOptions, done func(), err error) 
 	var cConfig unsafe.Pointer
 	if sz := len(o.Config); sz > 0 {
 		status := newStatus()
+		defer status.close()
 		// Copying into C-memory is the simplest thing to do in terms
 		// of memory safety and cgo rules ("C code may not keep a copy
 		// of a Go pointer after the call returns" from
